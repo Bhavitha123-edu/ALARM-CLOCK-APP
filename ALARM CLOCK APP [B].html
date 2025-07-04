@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Alarm Clock</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            transition: background-color 0.3s;
+        }
+        
+        .clock-face {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s;
+        }
+        
+        .clock-face:hover {
+            transform: scale(1.02);
+        }
+        
+        .alarm-item {
+            transition: all 0.3s;
+        }
+        
+        .alarm-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        .modal-overlay {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+        
+        .alarm-active {
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center p-4">
+    <div class="w-full max-w-md">
+        <!-- Main Clock Display -->
+        <div class="clock-face rounded-2xl p-6 mb-6 text-center">
+            <h1 class="text-5xl font-bold text-gray-800 mb-2" id="time">00:00</h1>
+            <p class="text-lg text-gray-600" id="date">Monday, January 1</p>
+        </div>
+        
+        <!-- Alarm Creation -->
+        <div class="clock-face rounded-2xl p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Set New Alarm</h2>
+            <form id="alarm-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Alarm Time</label>
+                    <input type="time" id="alarm-time" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Alarm Tone</label>
+                    <select id="alarm-tone" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="digital">Digital Beep</option>
+                        <option value="chime">Morning Chime</option>
+                        <option value="bell">Classic Bell</option>
+                        <option value="nature">Nature Sounds</option>
+                    </select>
+                </div>
+                
+                <div class="flex justify-between">
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" id="repeat-alarm" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <span class="text-sm text-gray-700">Repeat Daily</span>
+                    </label>
+                    
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        Set Alarm
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Alarms List -->
+        <div class="clock-face rounded-2xl p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">Your Alarms</h2>
+                <span id="alarm-count" class="text-sm text-gray-500">0 alarm(s)</span>
+            </div>
+            
+            <div class="space-y-3" id="alarms-list">
+                <p class="text-center text-gray-500 py-4" id="no-alarms">No alarms set yet</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Alarm Modal -->
+    <div id="alarm-modal" class="fixed inset-0 flex items-center justify-center p-4 modal-overlay hidden">
+        <div class="w-full max-w-sm bg-white rounded-2xl p-6 text-center alarm-active">
+            <div class="mb-6">
+                <img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/40b1b114-37db-4ff1-8692-b45473defe5b.png" alt="Bell icon with sound waves radiating outward" class="mx-auto mb-4">
+                <h2 class="text-2xl font-bold text-gray-800 mb-1">Alarm!</h2>
+                <p id="active-alarm-time" class="text-lg text-gray-600">08:00 AM</p>
+            </div>
+            
+            <div class="flex justify-center space-x-4">
+                <button id="snooze-btn" class="px-6 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2">
+                    Snooze (5 min)
+                </button>
+                <button id="dismiss-btn" class="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+                    Dismiss
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <audio id="alarm-sound" loop>
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="chime-sound" loop>
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-morning-clock-alarm-1003.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="bell-sound" loop>
+        <source src="https://assets.mixkit.co/sfx/preview/mixkti-classic-alarm-995.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="nature-sound" loop>
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-birds-chirping-near-river-1236.mp3" type="audio/mpeg">
+    </audio>
+    
+    <script>
+        // DOM Elements
+        const timeDisplay = document.getElementById('time');
+        const dateDisplay = document.getElementById('date');
+        const alarmsList = document.getElementById('alarms-list');
+        const noAlarmsMsg = document.getElementById('no-alarms');
+        const alarmCount = document.getElementById('alarm-count');
+        const alarmForm = document.getElementById('alarm-form');
+        const alarmTimeInput = document.getElementById('alarm-time');
+        const alarmToneSelect = document.getElementById('alarm-tone');
+        const repeatAlarmCheckbox = document.getElementById('repeat-alarm');
+        const alarmModal = document.getElementById('alarm-modal');
+        const snoozeBtn = document.getElementById('snooze-btn');
+        const dismissBtn = document.getElementById('dismiss-btn');
+        const activeAlarmTime = document.getElementById('active-alarm-time');
+        
+        // Audio elements
+        const alarmSound = document.getElementById('alarm-sound');
+        const chimeSound = document.getElementById('chime-sound');
+        const bellSound = document.getElementById('bell-sound');
+        const natureSound = document.getElementById('nature-sound');
+        
+        // Alarm data
+        let alarms = JSON.parse(localStorage.getItem('alarms')) || [];
+        let activeAlarm = null;
+        let snoozeTimeout = null;
+        
+        // Update clock every second
+        function updateClock() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            timeDisplay.textContent = `${hours}:${minutes}`;
+            
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            dateDisplay.textContent = now.toLocaleDateString('en-US', options);
+            
+            // Check alarms
+            checkAlarms(now);
+            
+            setTimeout(updateClock, 1000);
+        }
+        
+        // Check if any alarms should trigger
+        function checkAlarms(now) {
+            const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            
+            alarms.forEach(alarm => {
+                if (alarm.time === currentTime && alarm.active && !alarm.triggeredToday && !activeAlarm) {
+                    triggerAlarm(alarm);
+                }
+            });
+        }
+        
+        // Trigger the alarm
+        function triggerAlarm(alarm) {
+            activeAlarm = alarm;
+            activeAlarmTime.textContent = formatTime(alarm.time);
+            
+            // Play the selected tone
+            switch(alarm.tone) {
+                case 'chime':
+                    chimeSound.play();
+                    break;
+                case 'bell':
+                    bellSound.play();
+                    break;
+                case 'nature':
+                    natureSound.play();
+                    break;
+                default:
+                    alarmSound.play();
+            }
+            
+            alarmModal.classList.remove('hidden');
+            
+            // Mark as triggered today if not repeating
+            if (!alarm.repeat) {
+                const alarmIndex = alarms.findIndex(a => a.id === alarm.id);
+                alarms[alarmIndex].triggeredToday = true;
+                saveAlarms();
+                renderAlarms();
+            }
+        }
+        
+        // Format time for display (e.g., 08:00 → 8:00 AM)
+        function formatTime(time) {
+            const [hours, minutes] = time.split(':');
+            const hourNum = parseInt(hours, 10);
+            
+            if (hourNum === 0) return `12:${minutes} AM`;
+            if (hourNum === 12) return `12:${minutes} PM`;
+            if (hourNum > 12) return `${hourNum - 12}:${minutes} PM`;
+            return `${hourNum}:${minutes} AM`;
+        }
+        
+        // Save alarms to localStorage
+        function saveAlarms() {
+            localStorage.setItem('alarms', JSON.stringify(alarms));
+            updateAlarmCount();
+        }
+        
+        // Update alarm count display
+        function updateAlarmCount() {
+            const activeAlarms = alarms.filter(alarm => alarm.active).length;
+            alarmCount.textContent = `${activeAlarms} alarm(s)`;
+        }
+        
+        // Render alarms list
+        function renderAlarms() {
+            if (alarms.length === 0) {
+                noAlarmsMsg.classList.remove('hidden');
+                alarmsList.innerHTML = '';
+                return;
+            }
+            
+            noAlarmsMsg.classList.add('hidden');
+            
+            const today = new Date();
+            const currentDate = `${today.getMonth()}-${today.getDate()}`;
+            
+            alarmsList.innerHTML = alarms.map(alarm => {
+                const isActive = alarm.active;
+                const isTriggeredToday = alarm.triggeredToday && 
+                                         alarm.triggeredDate === currentDate &&
+                                         !alarm.repeat;
+                
+                return `
+                    <div class="alarm-item p-4 bg-white rounded-lg border border-gray-200 flex justify-between items-center">
+                        <div>
+                            <p class="font-medium text-gray-800 ${isTriggeredToday ? 'line-through text-gray-400' : ''}">
+                                ${formatTime(alarm.time)}
+                            </p>
+                            <p class="text-xs text-gray-500 mt-1">
+                                ${alarm.tone} • ${alarm.repeat ? 'Daily' : 'One-time'}
+                            </p>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <button 
+                                onclick="toggleAlarm('${alarm.id}')" 
+                                class="relative inline-flex items-center h-6 w-11 rounded-full transition-colors ${isActive ? 'bg-blue-600' : 'bg-gray-200'}"
+                            >
+                                <span class="sr-only">Toggle alarm</span>
+                                <span class="inline-block h-4 w-4 transform transition-transform rounded-full bg-white ${isActive ? 'translate-x-6' : 'translate-x-1'}" />
+                            </button>
+                            <button 
+                                onclick="deleteAlarm('${alarm.id}')" 
+                                class="text-gray-400 hover:text-red-500"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Toggle alarm active state
+        function toggleAlarm(id) {
+            const alarmIndex = alarms.findIndex(alarm => alarm.id === id);
+            alarms[alarmIndex].active = !alarms[alarmIndex].active;
+            saveAlarms();
+            renderAlarms();
+        }
+        
+        // Delete an alarm
+        function deleteAlarm(id) {
+            alarms = alarms.filter(alarm => alarm.id !== id);
+            saveAlarms();
+            renderAlarms();
+        }
+        
+        // Initialize the app
+        function init() {
+            updateClock();
+            renderAlarms();
+            updateAlarmCount();
+            
+            // Form submission
+            alarmForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const alarmTime = alarmTimeInput.value;
+                const alarmTone = alarmToneSelect.value;
+                const repeatAlarm = repeatAlarmCheckbox.checked;
+                
+                const newAlarm = {
+                    id: Date.now().toString(),
+                    time: alarmTime,
+                    tone: alarmTone,
+                    repeat: repeatAlarm,
+                    active: true,
+                    triggeredToday: false,
+                    triggeredDate: ''
+                };
+                
+                alarms.push(newAlarm);
+                saveAlarms();
+                renderAlarms();
+                
+                // Reset form
+                alarmForm.reset();
+                alarmTimeInput.value = '';
+            });
+            
+            // Snooze button
+            snoozeBtn.addEventListener('click', function() {
+                // Stop the alarm sound
+                alarmSound.pause();
+                alarmSound.currentTime = 0;
+                chimeSound.pause();
+                chimeSound.currentTime = 0;
+                bellSound.pause();
+                bellSound.currentTime = 0;
+                natureSound.pause();
+                natureSound.currentTime = 0;
+                
+                // Hide modal
+                alarmModal.classList.add('hidden');
+                
+                // Set snooze timeout (5 minutes)
+                clearTimeout(snoozeTimeout);
+                snoozeTimeout = setTimeout(() => {
+                    triggerAlarm(activeAlarm);
+                }, 5 * 60 * 1000);
+            });
+            
+            // Dismiss button
+            dismissBtn.addEventListener('click', function() {
+                // Stop the alarm sound
+                alarmSound.pause();
+                alarmSound.currentTime = 0;
+                chimeSound.pause();
+                chimeSound.currentTime = 0;
+                bellSound.pause();
+                bellSound.currentTime = 0;
+                natureSound.pause();
+                natureSound.currentTime = 0;
+                
+                // Hide modal
+                alarmModal.classList.add('hidden');
+                activeAlarm = null;
+            });
+        }
+        
+        // Expose functions to global scope for HTML onClick handlers
+        window.toggleAlarm = toggleAlarm;
+        window.deleteAlarm = deleteAlarm;
+        
+        // Start the app
+        init();
+    </script>
+</body>
+</html>
+
